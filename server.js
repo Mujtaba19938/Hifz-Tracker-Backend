@@ -141,12 +141,12 @@ mongoose.connection.once('connected', () => {
 // Routes
 const routesPath = path.join(__dirname, 'routes');
 
-app.use('/api/auth', require(path.join(routesPath, 'auth')));
-app.use('/api/admin', require(path.join(routesPath, 'admin')));
-app.use('/api/attendance', require(path.join(routesPath, 'attendance')));
-app.use('/api/activity', require(path.join(routesPath, 'activity')));
-app.use('/api/homework', require(path.join(routesPath, 'homework')));
-app.use('/api/classes', require(path.join(routesPath, 'classes')));
+app.use('/api/auth', require('./src/routes/auth'));
+app.use('/api/admin', require('./src/routes/admin'));
+app.use('/api/attendance', require('./src/routes/attendance'));
+app.use('/api/activity', require('./src/routes/activity'));
+app.use('/api/homework', require('./src/routes/homework'));
+app.use('/api/classes', require('./src/routes/classes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
