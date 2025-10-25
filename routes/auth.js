@@ -3,8 +3,14 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
-
 const router = express.Router();
+
+// Register new user
+router.post('/register', async (req, res) => {
+    // …
+});
+// login, student‑login and admin‑login handlers follow
+// 
 
 // Register new user
 router.post('/register', async (req, res) => {
