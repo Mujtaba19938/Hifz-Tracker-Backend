@@ -7,27 +7,8 @@ const router = express.Router();
 
 // Register new user
 router.post('/register', async (req, res) => {
-    // …
-});
-// login, student‑login and admin‑login handlers follow
-// 
-
-// Register new user
-router.post('/register', async (req, res) => {
   try {
     const { name, phoneNumber, email, password, masjidInfo } = req.body;
-
-    // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { phoneNumber }]
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'User with this email or phone number already exists'
-      });
-    }
 
     // Create new user
     const user = new User({
