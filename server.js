@@ -2,6 +2,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 
 // Load environment variables from .env first, then fallback to config.env
 dotenv.config();
@@ -18,6 +21,21 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Lightweight request logger
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    const safeBody = typeof req.body === 'object' ? { ...req.body } : req.body;
+    try {
+      if (safeBody && typeof safeBody === 'object') {
+        if ('password' in safeBody) safeBody.password = '[REDACTED]';
+        if ('token' in safeBody) safeBody.token = '[REDACTED]';
+      }
+    } catch (_) {}
+    console.log(`➡️  ${req.method} ${req.path}`, { query: req.query, body: safeBody });
+  }
+  next();
+});
 
 // MongoDB Connection with improved stability
 const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://khananimujtaba_db_user:WiXhDMSLON4ke5qh@hifztrackercluster.lyskfqj.mongodb.net/hifztracker?retryWrites=true&w=majority";
@@ -91,12 +109,44 @@ mongoose.connection.on('connected', () => {
 // Connect to MongoDB
 connectDB();
 
+// Ensure an admin user exists
+const User = require('./models/User');
+async function ensureAdminUser() {
+  try {
+    const email = process.env.ADMIN_EMAIL || 'admin@hifztracker.com';
+    const password = process.env.ADMIN_PASSWORD || 'Admin123!';
+    const name = process.env.ADMIN_NAME || 'Super Admin';
+
+    let admin = await User.findOne({ email });
+    if (!admin) {
+      admin = new User({ name, email, phoneNumber: '1000000000', password, role: 'admin', isActive: true });
+      await admin.save();
+      console.log(`👑 Admin user created: ${email}`);
+      return;
+    }
+    let updated = false;
+    if (admin.role !== 'admin') { admin.role = 'admin'; updated = true; }
+    if (process.env.ADMIN_PASSWORD) { admin.password = password; updated = true; }
+    if (updated) { await admin.save(); console.log(`👑 Admin user ensured/updated: ${email}`); }
+    else { console.log(`👑 Admin user present: ${email}`); }
+  } catch (e) {
+    console.error('❌ ensureAdminUser error:', e.message);
+  }
+}
+
+mongoose.connection.once('connected', () => {
+  ensureAdminUser();
+});
+
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/attendance', require('./routes/attendance'));
-app.use('/api/activity', require('./routes/activity'));
-app.use('/api/homework', require('./routes/homework'));
+const routesPath = path.join(__dirname, 'routes');
+
+app.use('/api/auth', require(path.join(routesPath, 'auth')));
+app.use('/api/admin', require(path.join(routesPath, 'admin')));
+app.use('/api/attendance', require(path.join(routesPath, 'attendance')));
+app.use('/api/activity', require(path.join(routesPath, 'activity')));
+app.use('/api/homework', require(path.join(routesPath, 'homework')));
+app.use('/api/classes', require(path.join(routesPath, 'classes')));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -125,14 +175,43 @@ app.use((req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+// Create HTTP server and attach Socket.io
+const server = http.createServer(app);
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`🌐 Server accessible at:`);
-  console.log(`   - http://localhost:${PORT}`);
-  console.log(`   - http://127.0.0.1:${PORT}`);
-  console.log(`   - http://192.168.100.15:${PORT}`);
-  console.log(`   - http://10.5.0.2:${PORT}`);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
+// Attach io instance for route handlers
+app.set('io', io);
+
+// Socket.io connection handlers
+io.on('connection', (socket) => {
+  console.log(`⚡ User connected: ${socket.id}`);
+
+  socket.on('join_class', ({ className, section }) => {
+    const room = `${className}-${section}`;
+    socket.join(room);
+    console.log(`Teacher joined room: ${room}`);
+  });
+
+  socket.on('join_student', (studentId) => {
+    const room = `student-${studentId}`;
+    socket.join(room);
+    console.log(`Student joined room: ${room}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`❌ User disconnected: ${socket.id}`);
+  });
+});
+
+const PORT = process.env.PORT || 8080;
+
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'production'}`);
 });
