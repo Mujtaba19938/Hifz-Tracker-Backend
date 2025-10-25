@@ -208,22 +208,9 @@ router.post('/add-student', auth, verifyAdmin, async (req, res) => {
       studentInfo
     });
 
-    // Generate a unique phone number for students (not required for students)
-    const generateUniquePhoneNumber = async () => {
-      let phoneNumber;
-      let isUnique = false;
-      
-      while (!isUnique) {
-        // Generate a random 10-digit number starting with 1
-        phoneNumber = '1' + Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
-        const existing = await User.findOne({ phoneNumber });
-        isUnique = !existing;
-      }
-      
-      return phoneNumber;
-    };
-
-    const studentPhoneNumber = await generateUniquePhoneNumber();
+    // Use the provided studentId (phoneNumber) as the student's login ID
+    // This ensures User.phoneNumber === Student.studentId so login works with entered ID
+    const studentPhoneNumber = phoneNumber;
 
     const student = new User({
       name,
@@ -249,6 +236,26 @@ router.post('/add-student', auth, verifyAdmin, async (req, res) => {
     });
 
     await studentDoc.save();
+
+    // Emit real-time update to the class-section room via Socket.io
+    try {
+      const io = req.app.get('io');
+      if (io && studentDoc.class && studentDoc.section) {
+        const payload = {
+          id: studentDoc._id,
+          name: studentDoc.name,
+          urduName: studentDoc.urduName,
+          class: studentDoc.class,
+          section: studentDoc.section,
+          studentId: studentDoc.studentId,
+          teacherId: studentDoc.teacherId || null,
+        };
+        io.to(`${studentDoc.class}-${studentDoc.section}`).emit('new_student', payload);
+        console.log(`📢 Emitted 'new_student' to room ${studentDoc.class}-${studentDoc.section}`);
+      }
+    } catch (emitErr) {
+      console.warn('⚠️ Socket emit failed for new_student:', emitErr?.message || emitErr);
+    }
 
     res.status(201).json({
       success: true,
