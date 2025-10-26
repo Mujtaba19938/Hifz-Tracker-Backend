@@ -5,12 +5,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": [
-        "utils/**",
-        "routes/**",
-        "models/**",
-        "middleware/**"
-      ]
+      "includeFiles": "{utils,routes,models,middleware}/**"
     }
   },
   "routes": [
