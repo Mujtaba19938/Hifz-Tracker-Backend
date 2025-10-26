@@ -1,84 +1,40 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./utils/db');
+// Hifz-Tracker-Backend/index.js
 
-// Load env for local/dev (Vercel provides env in runtime)
-dotenv.config();
-
-overrideEnvFromConfig();
-
-function overrideEnvFromConfig() {
-  // Optional: allow config.env fallback like server.js does
-  try {
-    dotenv.config({ path: './config.env' });
-  } catch (e) {}
-}
+const express = require("express");
+const connectDB = require("./utils/db");
+const authRoutes = require("./routes/auth");
+const adminRoutes = require("./routes/admin");
+const attendanceRoutes = require("./routes/attendance");
+const classesRoutes = require("./routes/classes");
+const homeworkRoutes = require("./routes/homework");
+const activityRoutes = require("./routes/activity");
 
 const app = express();
+app.use(express.json());
 
-// Middleware (match server.js behavior as closely as possible)
-app.use(cors({
-  origin: ['http://localhost:8081', 'http://localhost:19006', 'exp://192.168.100.15:8081'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Lightweight request logger (same pattern as server.js for /api)
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api')) {
-    const safeBody = typeof req.body === 'object' ? { ...req.body } : req.body;
-    try {
-      if (safeBody && typeof safeBody === 'object') {
-        if ('password' in safeBody) safeBody.password = '[REDACTED]';
-        if ('token' in safeBody) safeBody.token = '[REDACTED]';
-      }
-    } catch (_) {}
-    console.log(`➡️  ${req.method} ${req.path}`, { query: req.query, body: safeBody });
-  }
-  next();
-});
-
-// Connect to MongoDB (cached in serverless)
+// Connect to MongoDB (cached)
 connectDB();
 
-// Routes (unchanged)
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/attendance', require('./routes/attendance'));
-app.use('/api/activity', require('./routes/activity'));
-app.use('/api/homework', require('./routes/homework'));
-app.use('/api/classes', require('./routes/classes'));
+// Mount all route files
+app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/classes", classesRoutes);
+app.use("/api/homework", homeworkRoutes);
+app.use("/api/activity", activityRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    message: 'Hifz Tracker API is running',
-    timestamp: new Date().toISOString()
-  });
+// Root test route
+app.get("/", (req, res) => {
+  res.json({ success: true, message: "Hifz Tracker API running" });
 });
 
-// Error handler (keep same shape)
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error'
-  });
-});
-
-// 404 handler
+// 404 fallback
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found'
+    message: "Route not found",
+    path: req.originalUrl
   });
 });
 
-// Export the app for Vercel serverless
 module.exports = app;
