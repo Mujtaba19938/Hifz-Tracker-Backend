@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Student = require('../models/Student');
 const auth = require('../middleware/auth');
+const supabase = require('../utils/supabaseClient');
 
 // Placeholder for homework routes
 router.get('/', async (req, res) => {
@@ -146,6 +147,25 @@ router.post('/', auth, async (req, res) => {
     } catch (emitErr) {
       console.warn('⚠️ Socket emit failed for new_task:', emitErr?.message || emitErr);
     }
+
+    try {
+      if (supabase) {
+        supabase
+          .channel('assignments')
+          .send({
+            type: 'broadcast',
+            event: 'new-assignment',
+            payload: {
+              studentId,
+              teacherId: assignment.teacherId || (req.user?._id || null),
+              title: assignment.title,
+              type: assignment.type,
+              createdAt: assignment.createdAt
+            }
+          })
+          .catch(() => {});
+      }
+    } catch (_) {}
 
     res.status(201).json({
       success: true,

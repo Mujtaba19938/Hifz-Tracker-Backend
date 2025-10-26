@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const ClassModel = require('../models/Class');
+const supabase = require('../utils/supabaseClient');
 
 // Admin-only guard
 const adminOnly = (req, res, next) => {
@@ -32,6 +33,25 @@ router.post('/', auth, adminOnly, async (req, res) => {
     try {
       const io = req.app.get('io');
       if (io) io.emit('new_class', newClass);
+    } catch (_) {}
+
+    // Optional: Supabase notifications broadcast (non-blocking)
+    try {
+      if (supabase) {
+        supabase
+          .channel('notifications')
+          .send({
+            type: 'broadcast',
+            event: 'new-notification',
+            payload: {
+              title: 'New Class Created',
+              message: `Class ${newClass.name} created with ${newClass.sections?.length || 0} section(s)`,
+              classId: newClass._id,
+              timestamp: new Date().toISOString()
+            }
+          })
+          .catch(() => {});
+      }
     } catch (_) {}
 
     res.status(201).json({ success: true, message: 'Class created successfully', data: newClass });

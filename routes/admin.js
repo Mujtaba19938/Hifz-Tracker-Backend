@@ -2,6 +2,7 @@ const express = require('express');
 const User = require('../models/User');
 const Student = require('../models/Student');
 const auth = require('../middleware/auth');
+const supabase = require('../utils/supabaseClient');
 
 const router = express.Router();
 
@@ -171,6 +172,25 @@ router.post('/add-teacher', auth, verifyAdmin, async (req, res) => {
 
     await teacher.save();
 
+    // Optional: broadcast a notification (non-blocking)
+    try {
+      if (supabase) {
+        supabase
+          .channel('notifications')
+          .send({
+            type: 'broadcast',
+            event: 'new-notification',
+            payload: {
+              title: 'New Teacher Added',
+              message: `${teacher.name} has been added as a teacher`,
+              teacherId: teacher._id,
+              timestamp: new Date().toISOString()
+            }
+          })
+          .catch(() => {});
+      }
+    } catch (_) {}
+
     res.status(201).json({
       success: true,
       message: 'Teacher added successfully',
@@ -256,6 +276,27 @@ router.post('/add-student', auth, verifyAdmin, async (req, res) => {
     } catch (emitErr) {
       console.warn('⚠️ Socket emit failed for new_student:', emitErr?.message || emitErr);
     }
+
+    // Optional: broadcast a notification (non-blocking)
+    try {
+      if (supabase) {
+        supabase
+          .channel('notifications')
+          .send({
+            type: 'broadcast',
+            event: 'new-notification',
+            payload: {
+              title: 'New Student Added',
+              message: `${studentDoc.name} has been added to ${studentDoc.class}-${studentDoc.section}`,
+              studentId: studentDoc.studentId,
+              class: studentDoc.class,
+              section: studentDoc.section,
+              timestamp: new Date().toISOString()
+            }
+          })
+          .catch(() => {});
+      }
+    } catch (_) {}
 
     res.status(201).json({
       success: true,
