@@ -51,7 +51,9 @@ const connectDB = async (retryCount = 0) => {
       maxPoolSize: 10,
       retryWrites: true,
       w: 'majority',
-      bufferCommands: false
+      bufferCommands: false,
+      useNewUrlParser: true,
+      useUnifiedTopology: true
     });
     console.log('✅ Connected to MongoDB Atlas successfully');
     console.log('✅ Live data sync active between Admin, Teacher, and Student');

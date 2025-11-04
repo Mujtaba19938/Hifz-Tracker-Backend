@@ -17,6 +17,9 @@ async function run() {
   try {
     await mongoose.connect(MONGO_URI, {
       serverSelectionTimeoutMS: 10000,
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+
     });
     console.log('✅ Connected to MongoDB');
 
