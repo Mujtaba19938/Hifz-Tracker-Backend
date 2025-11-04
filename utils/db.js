@@ -20,6 +20,7 @@ async function connectDB() {
       useUnifiedTopology: true,
       bufferCommands: false, // important for serverless
       maxPoolSize: 10, // small pool for Vercel's short-lived runtime
+      serverSelectionTimeoutMS: 10000,
     });
 
     isConnected = db.connections[0].readyState === 1;
